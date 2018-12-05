@@ -4,88 +4,143 @@
 ' Date	: December 2018
 '
 ' Open a MS Access database and export every forms, macros, 
-' classes, modules and reports code
+' modules, queries and reports code
 '
-' Include the MS Access VBS class from 
-' https://github.com/cavo789/vbs_scripts/blob/master/src/classes/MSAccess.md
+' Include the somes VBS classes from 
+' https://github.com/cavo789/vbs_scripts
 '
 ' ========================================================
 
 Option Explicit
 
-Class clsMSAccess
+Class clsFiles
 
-	Private oApplication
+	Dim objFSO, objFile
+
 	Private bVerbose
 
-	Private sDatabaseName
-
-	Public Property Let verbose(bYesNo)
+	Public Property Let verbose(ByVal bYesNo)
 		bVerbose = bYesNo
 	End Property
 
-	Public Property Let DatabaseName(ByVal sFileName)
-		sDatabaseName = sFileName
-	End Property
-
 	Private Sub Class_Initialize()
-
 		bVerbose = False
-		sDatabaseName = ""
-
-		Set oApplication = Nothing
-
+		Set objFSO = CreateObject("Scripting.FileSystemObject")
 	End Sub
 
 	Private Sub Class_Terminate()
+		Set objFSO = Nothing
+	End Sub
 
-		If Not (oApplication Is Nothing) Then
+	' --------------------------------------------------
+	' Create a text file
+	' --------------------------------------------------
+	Public Sub CreateText(ByVal sFileName, ByVal sContent)
 
-			' Quit MS Access only when it was opened by this script
-			' This is the case when UserControl is equal to False
-			If (oApplication.UserControl = false) then
-				oApplication.Quit
-			End If
-
-			Set oApplication = Nothing
-
+		If bVerbose Then
+		'	wScript.echo "Create file " & sFileName 
 		End If
+
+		Set objFile = objFSO.CreateTextFile(sFileName, 2, True)
+		objFile.Write sContent
+		objFile.Close
+		Set objFile = Nothing
 
 	End Sub
 
-	Private Function CheckIfFileExists(sFileName)
+	' --------------------------------------------------
+	' Verifies the existence of the file 
+	' --------------------------------------------------
+	Public Function Exists(ByVal sFileName)
+		Exists = objFSO.FileExists(sFileName)
+	End Function
 
-		Dim objFSO
-		Dim bReturn
+	' --------------------------------------------------
+	' Remove some characters like a wildcard (*) if 
+	' present in the suggested filename
+	' --------------------------------------------------
+	Public Function MakeSafe(ByVal sFileName) 
+	
+		' Don't allow * in a filename
+		sFileName = Replace(sFileName, "*", "_")
 
-		bReturn = True
+		MakeSafe = sFileName
 
-		Set objFSO = CreateObject("Scripting.FileSystemObject")
+	End Function
 
-		If Not (objFSO.FileExists(sFileName)) Then
-		 	wScript.echo "Error, the file " & sFileName & " is not found"
-			bReturn = False
+	' --------------------------------------------------
+	' Return the file extension (f.i. "accdb")
+	' --------------------------------------------------
+	Public Function GetExtensionName(ByVal sFileName)
+		GetExtensionName = objFSO.GetExtensionName(sFileName)
+	End Function 
+
+	' --------------------------------------------------
+	' Return only the file name (f.i. "db1")
+	' --------------------------------------------------
+	Public Function GetBaseName(ByVal sFileName)
+		GetBaseName = objFSO.GetBaseName(sFileName)
+	End Function 
+
+	' --------------------------------------------------
+	' Return the folder where the file is stored (f.i. c:\temp)
+	' --------------------------------------------------
+	Public Function GetParentFolderName(ByVal sFileName)
+
+		Dim sPath
+		Dim objShell
+
+		sPath = ""
+
+		If (Exists(sFileName)) Then
+
+			sPath = objFSO.GetParentFolderName(sFileName)
+
+			' sPath is empty when sFileName was just a filename 
+			' like f.i. "db1.accdb". So, in that case, get the current 
+			' folder and concatenate
+			If (sPath = "") Then
+				Set objShell = WScript.CreateObject("WScript.Shell")
+				sPath = objShell.CurrentDirectory 
+				Set objShell = Nothing
+			End If 
+
 		End If
 
+		GetParentFolderName = sPath
+
+	End Function 
+
+End Class
+
+Class clsFolders
+
+	Dim objFSO
+	Private bVerbose
+
+	Private Sub Class_Initialize()
+		bVerbose = False
+		Set objFSO = CreateObject("Scripting.FileSystemObject")
+	End Sub
+
+	Private Sub Class_Terminate()
 		Set objFSO = Nothing
+	End Sub
 
-		CheckIfFileExists = bReturn
-
-	End function
+	Public Property Let verbose(ByVal bYesNo)
+		bVerbose = bYesNo
+	End Property
 
 	' -----------------------------------------------------------
 	'
 	' Create a folder structure; create parents folder if not found
-	' CreateFolderStructure("c:\temp\a\b\c\d\e") will create the
+	' MakeFolder("c:\temp\a\b\c\d\e") will create the
 	' full structure in one call
 	'
 	' -----------------------------------------------------------
-	Private Sub CreateFolderStructure(ByVal sFolderName)
+	Public Sub MakeFolder(ByVal sFolderName)
 
 		Dim arrPart, sBaseName, sDirName
-		Dim objFSO
-
-		Set objFSO = WScript.CreateObject("Scripting.FileSystemObject")
 
 		If Not (objFSO.FolderExists(sFolderName)) Then
 
@@ -108,6 +163,72 @@ Class clsMSAccess
 			Next
 
 		End If
+
+	End Sub
+
+End Class
+
+Class clsMSAccess
+
+	Private oApplication
+	Private bVerbose
+	Private sExportPath
+	Private cFiles
+	Private cFolders
+
+	Private sDatabaseName
+
+	Public Property Let verbose(ByVal bYesNo)
+		bVerbose = bYesNo
+		cFiles.Verbose = bYesNo
+		cFolders.Verbose = bYesNo
+	End Property
+
+	Public Property Let DatabaseName(ByVal sFileName)
+		sDatabaseName = sFileName
+	End Property
+
+	' -----------------------------------------------------------
+	' Folder where files will be generated
+	' -----------------------------------------------------------
+	Public Property Let ExportPath(ByVal sPath)
+
+		If bVerbose Then
+			wScript.echo "Exporting sources to " & sPath & vbCRLF
+		End If
+		
+		sExportPath = sPath
+
+	End Property
+
+	Private Sub Class_Initialize()
+
+		Set cFiles = new clsFiles 
+		Set cFolders = new clsFolders 
+		Set oApplication = Nothing
+
+		bVerbose = False
+		sDatabaseName = ""
+		sExportPath = ""
+
+	End Sub
+
+	Private Sub Class_Terminate()
+
+		If Not (oApplication Is Nothing) Then
+
+			' Quit MS Access only when it was opened by this script
+			' This is the case when UserControl is equal to False
+			If (oApplication.UserControl = false) then
+				oApplication.Quit
+			End If
+
+			Set oApplication = Nothing
+
+		End If
+
+		Set cFiles = Nothing
+		Set cFolders = Nothing
 
 	End Sub
 
@@ -176,6 +297,239 @@ Class clsMSAccess
 	End Sub
 
 	' -----------------------------------------------------------
+	' Export forms as .frm files
+	' -----------------------------------------------------------
+	Private Sub ExportForms()
+	
+		Dim j, k
+		Dim sOutFileName, sSQL
+		Dim obj 
+	
+		k = oApplication.CurrentProject.AllForms.Count
+
+		If (k > 0) Then
+
+			If bVerbose Then
+				wScript.Echo vbCrLf & "Export all forms"
+			End if
+
+			j = 0
+
+			Call cFolders.MakeFolder(sExportPath & "Forms\")
+
+			For Each obj In oApplication.CurrentProject.AllForms
+
+				j = j + 1
+
+				sOutFileName = cFiles.MakeSafe(obj.FullName) & ".frm"
+				sOutFileName = "Forms\" & sOutFileName
+
+				If bVerbose Then
+					wScript.echo "	Export form " & j & "/" & k & " - " & _
+						obj.FullName & " to " & sOutFileName
+				End If
+
+				' 2 = acForm
+				oApplication.SaveAsText 2, obj.FullName, sExportpath & sOutFileName
+				oApplication.DoCmd.Close 2, obj.FullName
+
+			Next
+
+		End If 
+
+	End Sub
+
+	' -----------------------------------------------------------
+	' Export macros as .txt files
+	' -----------------------------------------------------------
+	Private Sub ExportMacros()
+	
+		Dim j, k
+		Dim sOutFileName, sSQL
+		Dim obj 
+
+		k = oApplication.CurrentProject.AllMacros.Count
+
+		If (k > 0) Then
+
+			If bVerbose Then
+				wScript.Echo vbCrLf & "Export all macros"
+			End if
+
+			j = 0
+		
+			Call cFolders.MakeFolder(sExportPath & "Macros\")
+
+			For Each obj In oApplication.CurrentProject.AllMacros
+
+				j = j + 1
+
+				sOutFileName = cFiles.MakeSafe(obj.FullName) & ".txt"
+				sOutFileName = "Macros\" & sOutFileName
+
+				If bVerbose Then
+					wScript.echo "	Export macro " & j & "/" & k & " - " & _
+						obj.FullName & " to " & sOutFileName
+				End If
+
+				' 4 = acMacro
+				oApplication.SaveAsText 4, obj.FullName, sExportpath & sOutFileName
+
+			Next
+		End If 
+
+	End Sub
+
+	' -----------------------------------------------------------
+	' Export modules as .bas files
+	' -----------------------------------------------------------
+	Private Sub ExportModules()
+	
+		Dim j, k
+		Dim sOutFileName, sSQL
+		Dim obj 
+		
+		k = oApplication.CurrentProject.AllModules.Count
+
+		If (k > 0) Then
+
+			If bVerbose Then
+				wScript.Echo vbCrLf & "Export all modules"
+			End if
+
+			j = 0
+
+			Call cFolders.MakeFolder(sExportPath & "Modules\")
+
+			For Each obj In oApplication.CurrentProject.AllModules
+
+				j = j + 1
+
+				' Don't allow * in a filename
+				sOutFileName = cFiles.MakeSafe(obj.FullName) & ".bas"
+				sOutFileName = "Modules\" & sOutFileName
+
+				If bVerbose Then
+					wScript.echo "	Export module " & j & "/" & k & " - " & _ 
+						obj.FullName & " to " & sOutFileName
+				End If
+
+				' 5 = acModule
+				On Error Resume Next
+
+				oApplication.SaveAsText 5, obj.FullName, sExportpath & sOutFileName
+
+				If Err.number <> 0 Then
+					wScript.echo "      An error has occured: " & Err.Description
+					wScript.echo "      If a password is needed to see the code, please open the "
+					wScript.echo "      database manually and open a module so you can specify the "
+					wScript.echo "      password. Then, without closing the database, restart this script"
+					Err.clear
+
+					' And stop 
+					Exit For
+
+				End If
+
+				On Error Goto 0
+
+			Next
+
+		End If 
+
+	End sub
+
+	' -----------------------------------------------------------
+	' Export queries as .sql files
+	' -----------------------------------------------------------
+	Private Sub ExportQueries()
+
+		Dim j, k
+		Dim sOutFileName, sSQL
+		Dim obj 
+
+		k = oApplication.CurrentDb.QueryDefs.Count
+
+		If (k > 0) Then
+
+			If bVerbose Then
+				wScript.Echo vbCrLf & "Export all queries"
+			End if
+
+			j = 0
+
+			Call cFolders.MakeFolder(sExportPath & "Queries\")
+
+			' Process all objects
+			For Each obj In oApplication.CurrentDb.QueryDefs
+
+				j = j + 1
+
+				sOutFileName = cFiles.MakeSafe(obj.Name) & ".sql"
+				sOutFileName = "Queries\" & sOutFileName
+
+				If bVerbose Then
+					wScript.echo "	Export query " & j & "/" & k & " - " & _
+						obj.Name & " to " & sOutFileName
+				End If
+
+				' Get the query SQL statement
+				sSQL = Trim(obj.SQL)
+
+				' replace carriage return by a single space
+				sSQL = Replace(sSQL, vbCrLf, " ")
+
+				Call cFiles.CreateText(sExportPath & sOutFileName, sSQL)
+
+			Next
+
+		End If
+
+	End Sub
+	
+	' -----------------------------------------------------------
+	' Export reports as .txt files
+	' -----------------------------------------------------------
+	Private Sub ExportReports()
+	
+		Dim j, k
+		Dim sOutFileName, sSQL
+		Dim obj 
+
+		k = oApplication.CurrentProject.AllReports.Count
+
+		If (k > 0) Then
+
+			If bVerbose Then
+				wScript.Echo vbCrLf & "Export all reports"
+			End if
+
+			j = 0
+
+			Call cFolders.MakeFolder(sExportPath & "Reports\")
+
+			For Each obj In oApplication.CurrentProject.AllReports
+
+				j = j + 1
+
+				sOutFileName = cFiles.MakeSafe(obj.FullName) & ".txt"
+				sOutFileName = "Reports\" & sOutFileName
+
+				If bVerbose Then
+					wScript.echo "	Export report " & j & "/" & k & " - " & _
+						obj.FullName & " to " & sOutFileName
+				End If
+
+				' 3 = acReport
+				oApplication.SaveAsText 3, obj.FullName, sExportpath & sOutFileName
+
+			Next
+
+		End If 
+			
+	End Sub
+
+	' -----------------------------------------------------------
 	' Open a database and export every forms, macros, modules
 	' and reports code to flat files
 	'
@@ -183,34 +537,18 @@ Class clsMSAccess
 	' 	cMSAccess.Decompose("c:\temp\db1.accdb")
 	'
 	' -----------------------------------------------------------
-	Public Sub Decompose(sDBName, sExportPath)
+	Public Sub Decompose(sDBName)
 
-		Dim j, k
-		Dim objFSO, obj, objShell
-		Dim myComponent
-		Dim sModuleType
-		Dim sTempName, sOutFileName
 		Dim sDBExtension, sDBParentFolder
 
 		' Before starting, just verify that files exists
 		' If no, show an error message and stop
-		If CheckIfFileExists(sDBName) Then
+		If cFiles.Exists(sDBName) Then
 
-			Set objFSO = CreateObject("Scripting.FileSystemObject")
+			sDBExtension = cFiles.GetExtensionName(sDBName)
+			sDBName = cFiles.GetBaseName(sDBName) & "." & sDBExtension
+			sDBParentFolder = cFiles.GetParentFolderName(sDBName)
 
-			sDBExtension = objFSO.GetExtensionName(sDBName)
-			sDBName = objFSO.GetBaseName(sDBName) & "." & sDBExtension
-			sDBParentFolder = objFSO.GetParentFolderName(sDBName)
-
-			' sDBParentFolder is empty when the script was called
-			' with only the name of the file like f.i. "db1.accdb"
-			' So, in that case, get the current folder and concatenate
-			If (sDBParentFolder = "") Then
-				Set objShell = WScript.CreateObject("WScript.Shell")
-				sDBParentFolder = objShell.CurrentDirectory 
-				Set objShell = Nothing
-			End If 
-	
 			' Full path
 			sDatabaseName = sDBParentFolder & "\" & sDBName
 
@@ -222,123 +560,37 @@ Class clsMSAccess
 			Call OpenDatabase()
 
 			If (sExportPath = "") then
-				sExportPath = sDBParentFolder & "\src\" & sDBName & "\"
+				ExportPath = sDBParentFolder & "\src\" & sDBName & "\"
 			End If
 
-			If bVerbose Then
-				wScript.echo "Exporting sources to " & sExportPath & vbCRLF
-			End If
+			Call cFolders.MakeFolder(sExportPath)
 
-			Call CreateFolderStructure(sExportPath)
+			If (oApplication.CurrentProject.AllForms.Count > 0) Then
+				Call ExportForms()
+			End if
 
-			' Export the code under each forms
-			k = oApplication.CurrentProject.AllForms.Count
-			If (k > 0) Then
+			If (oApplication.CurrentProject.AllMacros.Count > 0) Then
+				Call ExportMacros()
+			End if
 
-				j = 0
+			If (oApplication.CurrentProject.AllModules.Count > 0) Then
+				Call ExportModules()
+			End if
 
-				Call CreateFolderStructure(sExportPath & "Forms\")
+			If (oApplication.CurrentDb.QueryDefs.Count > 0) Then
+				Call ExportQueries()
+			End if
 
-				For Each obj In oApplication.CurrentProject.AllForms
+			If (oApplication.CurrentProject.AllReports.Count > 0) Then
+				Call ExportReports()
+			End if
 
-					j = j + 1
-
-					sOutFileName = obj.FullName & ".frm"
-					sOutFileName = "Forms\" & sOutFileName
-
-					If bVerbose Then
-						wScript.echo "  Export form " & j & "/" & k & " - " & _
-							obj.FullName & " to " & sOutFileName
-					End If
-
-					' 2 = acForm
-					oApplication.SaveAsText 2, obj.FullName, sExportpath & sOutFileName
-					oApplication.DoCmd.Close 2, obj.FullName
-
-				Next
-			End If 
-
-			' Export macros
-			k = oApplication.CurrentProject.AllMacros.Count
-			If (k > 0) Then
-
-				j = 0
-			
-				Call CreateFolderStructure(sExportPath & "Macros\")
-
-				For Each obj In oApplication.CurrentProject.AllMacros
-
-					j = j + 1
-
-					sOutFileName = obj.FullName & ".txt"
-					sOutFileName = "Macros\" & sOutFileName
-
-					If bVerbose Then
-						wScript.echo "  Export macro " & j & "/" & k & " - " & _
-							obj.FullName & " to " & sOutFileName
-					End If
-
-					' 4 = acMacro
-					oApplication.SaveAsText 4, obj.FullName, sExportpath & sOutFileName
-
-				Next
-			End If 
-
-			' Export modules
-			k = oApplication.CurrentProject.AllModules.Count
-			If (k > 0) Then
-
-				j = 0
-
-				Call CreateFolderStructure(sExportPath & "Modules\")
-
-				For Each obj In oApplication.CurrentProject.AllModules
-
-					j = j + 1
-
-					sOutFileName = obj.FullName & ".bas"
-					sOutFileName = "Modules\" & sOutFileName
-
-					If bVerbose Then
-						wScript.echo "  Export module " & j & "/" & k & " - " & _ 
-							obj.FullName & " to " & sOutFileName
-					End If
-
-					' 5 = acModule
-					oApplication.SaveAsText 5, obj.FullName, sExportpath & sOutFileName
-
-				Next
-			End If 
-
-			' Export the code under each reports
-			k = oApplication.CurrentProject.AllReports.Count
-			If (k > 0) Then
-
-				j = 0
-
-				Call CreateFolderStructure(sExportPath & "Reports\")
-
-				For Each obj In oApplication.CurrentProject.AllReports
-
-					j = j + 1
-
-					sOutFileName = obj.FullName & ".bas"
-					sOutFileName = "Reports\" & sOutFileName
-
-					If bVerbose Then
-						wScript.echo "  Export report " & j & "/" & k & " - " & _
-							obj.FullName & " to " & sOutFileName
-					End If
-
-					' 3 = acReport
-					oApplication.SaveAsText 3, obj.FullName, sExportpath & sOutFileName
-
-				Next
-
-			End If 
-			
 			' Close the database (only if it was opened by automation)
 			Call CloseDatabase
+
+		Else
+
+			wScript.echo "Error, the file " & sDBName & " is not found"
 
 		End If
 
@@ -380,11 +632,7 @@ Dim arrDBNames(0)
 
 		cMSAccess.Verbose = True
 
-		' The second parameter is where source files should be stored
-		' If not specified, will be in the same folder where the
-		' database is stored, in the /src subfolder (will be created if
-		' needed)
-		Call cMSAccess.Decompose(sFile, "")
+		Call cMSAccess.Decompose(sFile)
 
 		Set cMSAccess = Nothing
 

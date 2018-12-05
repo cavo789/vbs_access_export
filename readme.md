@@ -1,6 +1,6 @@
 # MS Access - Export code to flat files
 
-> Export every code objects of a MS Access database (forms, macros, modules and reports code) to flat files, in a batch mode
+> Export every code objects of a MS Access database (forms, macros, modules, queries and reports) to flat files, in a batch mode
 
 ## Table of Contents
 
@@ -13,7 +13,7 @@
 
 ## Description
 
-This VB script will export all code objects (forms, macros, modules and reports) from a MS Access database / application (can be `.accdb` or `.mdb`) to flat files on your disk.
+This VB script will export all code objects (forms, macros, modules, queries and reports) from a MS Access database / application (can be `.accdb` or `.mdb`) to flat files on your disk.
 
 This way, you'll get a quick backup of your code and you'll be able to synchronize your code on a versioning platform like GitHub.
 
@@ -37,14 +37,26 @@ For instance, by running `cscript vbs_access_export.vbs C:\Christophe\db1.mdb` y
 Process database C:\Christophe\db1.mdb
 Exporting sources to C:\Christophe\src\db1.mdb\
 
-Export module 1/8 - clsData to Modules\clsData.bas
-Export module 2/8 - clsExcel to Modules\clsExcel.bas
-Export module 3/8 - Declaration to Modules\Declaration.bas
-Export module 4/8 - SQL_Declaration to Modules\SQL_Declaration
-Export module 5/8 - ExcelHelper to Modules\ExcelHelper.bas
-Export module 6/8 - Helper to Modules\Helper.bas
-Export module 7/8 - Import to Modules\Import.bas
-Export module 8/8 - MassUpload to Modules\MassUpload.bas
+Export all forms
+        Export form 1/2 - frmCustomers to Forms\frmCustomers.frm
+        Export form 2/2 - frmInvoices to Forms\frmInvoices.frm
+
+Export all macros
+        Export macro 1/15 - mcrPrint to Macros\mcrPrint.txt
+        [...]
+
+Export all modules
+        Export module 1/2 - Helper to Modules\Helper.bas
+        Export module 2/2 - SQL_Server to Modules\SQL_Server.bas
+
+Export all queries
+        Export query 1/23 - qryCustomers to Queries\qryCustomers.sql
+        Export query 2/23 - qryInvoices to Queries\qryInvoices.sql
+        [...]
+
+Export all reports
+        Export report 1/8 - Invoice to Reports\Invoice.txt
+        [...]
 ```
 
 Once finished, you'll have a sub-folder called `src` with one file by object so, indirectly, you've a backup of your code :ok_hand:
