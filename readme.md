@@ -1,6 +1,6 @@
-![banner](image/banner.jpg)
-
 # MS Access - Export code to flat files
+
+![banner](./banner.svg)
 
 > Export every code objects of a MS Access database (forms, macros, modules, queries and reports) to flat files, in a batch mode
 
